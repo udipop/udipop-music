@@ -1,0 +1,58 @@
+name: Build TAG Timestamp Camera APK
+
+on:
+  push:
+    branches: [ "tag-apk-build" ]
+    paths:
+      - ".github/workflows/tag-apk-build.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 35
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.9
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Restore project
+        run: |
+          mkdir -p tag-project
+          base64 -d tag-timestamp-camera/TAG_Timestamp_Camera_Source_For_CI.b64 > /tmp/tag-project.zip
+          unzip -q /tmp/tag-project.zip -d tag-project
+
+      - name: Build installable debug APK
+        working-directory: tag-project
+        run: gradle --no-daemon assembleDebug
+
+      - name: Rename APK
+        run: |
+          cp tag-project/app/build/outputs/apk/debug/app-debug.apk TAG_Timestamp_Camera.apk
+          ls -lh TAG_Timestamp_Camera.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TAG-Timestamp-Camera-APK
+          path: TAG_Timestamp_Camera.apk
+          if-no-files-found: error
+          retention-days: 7
