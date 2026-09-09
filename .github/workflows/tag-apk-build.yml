@@ -60,3 +60,5 @@ jobs:
           path: TAG_Timestamp_Camera.apk
           if-no-files-found: error
           retention-days: 7
+
+# build trigger 2
