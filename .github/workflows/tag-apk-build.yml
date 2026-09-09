@@ -5,6 +5,7 @@ on:
     branches: [ "tag-apk-build" ]
     paths:
       - ".github/workflows/tag-apk-build.yml"
+      - "tag-project/**"
   workflow_dispatch:
 
 jobs:
@@ -23,30 +24,33 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install Android SDK 35
-        run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
 
       - name: Set up Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Restore project
+      - name: Fetch TAG company logo
         run: |
-          mkdir -p tag-project
-          base64 -d tag-timestamp-camera/TAG_Timestamp_Camera_Source_For_CI.b64 > /tmp/tag-project.zip
-          unzip -q /tmp/tag-project.zip -d tag-project
+          mkdir -p tag-project/app/src/main/res/drawable
+          curl -fL --retry 3 "https://seashell-giraffe-571836.hostingersite.com/?action=logo" -o tag-project/app/src/main/res/drawable/tag_icon.png
+          test -s tag-project/app/src/main/res/drawable/tag_icon.png
+          file tag-project/app/src/main/res/drawable/tag_icon.png
 
       - name: Build installable debug APK
         working-directory: tag-project
         run: gradle --no-daemon assembleDebug
 
-      - name: Rename APK
+      - name: Validate and rename APK
         run: |
           cp tag-project/app/build/outputs/apk/debug/app-debug.apk TAG_Timestamp_Camera.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose TAG_Timestamp_Camera.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging TAG_Timestamp_Camera.apk | head -n 15
           ls -lh TAG_Timestamp_Camera.apk
 
       - name: Upload APK artifact
